@@ -10,22 +10,22 @@
 #include "discrete_cosine_transform.h"
 #include "square_matrix.h"
 
-namespace ejmahler_dct {
+namespace ejmahler_integration {
     template<size_t N, typename floating_t, class Function>
     floating_t integrateClenshawCurtis(Function integrand, floating_t from, floating_t to);
 
     template<size_t N, typename floating_t>
-    std::array<floating_t, N/2+1> clenshawCurtisPoints(void);
+    constexpr std::array<floating_t, N/2+1> clenshawCurtisPoints(void);
 
     template<size_t N, typename floating_t>
-    std::array<floating_t, N/2+1> clenshawCurtisWeights(void);
+    constexpr std::array<floating_t, N/2+1> clenshawCurtisWeights(void);
 }
 
 template<size_t N, typename floating_t, class Function>
-floating_t ejmahler_dct::integrateClenshawCurtis(Function integrand, floating_t a, floating_t b)
+floating_t ejmahler_integration::integrateClenshawCurtis(Function integrand, floating_t a, floating_t b)
 {
-    std::array<floating_t, N/2+1> quadraturePoints = clenshawCurtisPoints<N, floating_t>();
-    std::array<floating_t, N/2+1> quadratureWeights = clenshawCurtisWeights<N, floating_t>();
+    constexpr std::array<floating_t, N/2+1> quadraturePoints = clenshawCurtisPoints<N, floating_t>();
+    constexpr std::array<floating_t, N/2+1> quadratureWeights = clenshawCurtisWeights<N, floating_t>();
 
 
     floating_t halfDiff = (b - a) / 2;
@@ -44,20 +44,20 @@ floating_t ejmahler_dct::integrateClenshawCurtis(Function integrand, floating_t 
 
 
 template<size_t N, typename floating_t>
-std::array<floating_t, N/2+1> ejmahler_dct::clenshawCurtisPoints(void)
+constexpr std::array<floating_t, N/2+1> ejmahler_integration::clenshawCurtisPoints(void)
 {
     std::array<floating_t, N/2+1> result{};
 
     for(size_t i = 0; i <= N/2; i++)
     {
-        result[i] = std::cos(i * M_PI / N);
+        result[i] = std::cos(i * floating_t(M_PI) / N);
     }
 
     return result;
 }
 
 template<size_t N, typename floating_t>
-std::array<floating_t, N/2+1> ejmahler_dct::clenshawCurtisWeights(void)
+constexpr std::array<floating_t, N/2+1> ejmahler_integration::clenshawCurtisWeights(void)
 {
     float scale = floating_t(2) / N;
 
@@ -67,7 +67,7 @@ std::array<floating_t, N/2+1> ejmahler_dct::clenshawCurtisWeights(void)
         input[i] = scale / (1 - floating_t(4 * i * i));
     }
 
-    auto result = ejmahler_dct::dctType1(input);
+    auto result = ejmahler_integration::dctType1(input);
 
     result[0] *= .5;
 

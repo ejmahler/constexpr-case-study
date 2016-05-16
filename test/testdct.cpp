@@ -30,7 +30,7 @@ void TestDct::testDctType1(void)
     QFETCH(TestArray, input);
     QFETCH(TestArray, expected);
 
-    auto result = ejmahler_dct::dctType1(input);
+    auto result = ejmahler_integration::dctType1(input);
 
     for(int i = 0; i < TEST_SIZE; i++)
     {

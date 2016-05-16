@@ -1,8 +1,14 @@
-#include <QCoreApplication>
+#include <iostream>
 
-int main(int argc, char *argv[])
+#include <functional>
+
+#include "clenshaw_curtis_quadrature.h"
+
+int main()
 {
-    QCoreApplication a(argc, argv);
+    auto integrand = [](float x){ return (x+1)*(x-2);};
 
-    return a.exec();
+    float result = ejmahler_integration::integrateClenshawCurtis<8>(integrand, -1.0f, 2.0f);
+
+    std::cout << result << std::endl;
 }

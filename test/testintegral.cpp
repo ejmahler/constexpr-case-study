@@ -30,15 +30,15 @@ void TestIntegral::testClenshawCurtis(void)
 
     auto func = [](float x){return (x+1)*(x-2)*(x-1);};
 
-    auto result2 = ejmahler_dct::integrateClenshawCurtis<2>(func, from, to);
-    auto result4 = ejmahler_dct::integrateClenshawCurtis<4>(func, from, to);
-    auto result6 = ejmahler_dct::integrateClenshawCurtis<6>(func, from, to);
-    auto result8 = ejmahler_dct::integrateClenshawCurtis<8>(func, from, to);
-    auto result10 = ejmahler_dct::integrateClenshawCurtis<10>(func, from, to);
-    auto result12 = ejmahler_dct::integrateClenshawCurtis<12>(func, from, to);
-    auto result14 = ejmahler_dct::integrateClenshawCurtis<14>(func, from, to);
-    auto result16 = ejmahler_dct::integrateClenshawCurtis<16>(func, from, to);
-    auto result50 = ejmahler_dct::integrateClenshawCurtis<50>(func, from, to);
+    auto result2 = ejmahler_integration::integrateClenshawCurtis<2>(func, from, to);
+    auto result4 = ejmahler_integration::integrateClenshawCurtis<4>(func, from, to);
+    auto result6 = ejmahler_integration::integrateClenshawCurtis<6>(func, from, to);
+    auto result8 = ejmahler_integration::integrateClenshawCurtis<8>(func, from, to);
+    auto result10 = ejmahler_integration::integrateClenshawCurtis<10>(func, from, to);
+    auto result12 = ejmahler_integration::integrateClenshawCurtis<12>(func, from, to);
+    auto result14 = ejmahler_integration::integrateClenshawCurtis<14>(func, from, to);
+    auto result16 = ejmahler_integration::integrateClenshawCurtis<16>(func, from, to);
+    auto result50 = ejmahler_integration::integrateClenshawCurtis<50>(func, from, to);
 
     QCOMPARE(result2, expected);
     QCOMPARE(result4, expected);

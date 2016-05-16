@@ -7,16 +7,13 @@
 #define M_PI           3.14159265358979323846
 #endif
 
-namespace ejmahler_dct {
+namespace ejmahler_integration {
     template<class floating_t, size_t N>
-    std::array<floating_t, N> dctType1(std::array<floating_t, N> input);
-
-    template<class floating_t, size_t N>
-    std::array<floating_t, N> dctType1_ortho(std::array<floating_t, N> input);
+    constexpr std::array<floating_t, N> dctType1(std::array<floating_t, N> input);
 }
 
 template<class floating_t, size_t N>
-std::array<floating_t, N> ejmahler_dct::dctType1(std::array<floating_t, N> input)
+constexpr std::array<floating_t, N> ejmahler_integration::dctType1(std::array<floating_t, N> input)
 {
     std::array<floating_t, N> result{};
 
@@ -24,7 +21,7 @@ std::array<floating_t, N> ejmahler_dct::dctType1(std::array<floating_t, N> input
     {
         for(size_t i = 1; i < N - 1; i++)
         {
-            result[k] += input[i] * std::cos(M_PI * i * k / floating_t(N - 1));
+            result[k] += input[i] * std::cos(floating_t(M_PI) * i * k / floating_t(N - 1));
         }
 
         result[k] *= 2;
