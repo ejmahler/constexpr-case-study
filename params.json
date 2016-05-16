@@ -1,0 +1,6 @@
+{
+  "name": "Dct",
+  "tagline": "A case study in the shortfalls of c++14 constexpr",
+  "body": "# Introduction\r\nThis is the introduction section.\r\n\r\n# Motivation\r\nThis is the motivation section.\r\n\r\n# The Code\r\nThis is the code section.\r\n\r\n# Conclusion\r\nThis is the conclusion section.",
+  "note": "Don't delete this file! It's used internally to help with page regeneration."
+}
