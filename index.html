@@ -18,30 +18,172 @@
         <h1>Dct</h1>
         <p>A case study in the shortfalls of c++14 constexpr</p>
 
-        <p class="view"><a href="https://github.com/ejmahler/dct">View the Project on GitHub <small>ejmahler/dct</small></a></p>
+        <p class="view"><a href="https://github.com/ejmahler/constexpr-case-study">View the Project on GitHub <small>ejmahler/constexpr-case-study</small></a></p>
 
 
         <ul>
-          <li><a href="https://github.com/ejmahler/dct/zipball/master">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/ejmahler/dct/tarball/master">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="https://github.com/ejmahler/dct">View On <strong>GitHub</strong></a></li>
+          <li><a href="https://github.com/ejmahler/constexpr-case-study/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/ejmahler/constexpr-case-study/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/ejmahler/constexpr-case-study">View On <strong>GitHub</strong></a></li>
         </ul>
       </header>
       <section>
         <h1>
 <a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Introduction</h1>
 
-<p>This is the introduction section.</p>
+<p>I think c++ constexpr is really cool, but it has a few flaws. In exploring it over the last few weeks, I've discovered some shortfalls that prevent it from being fully usable for a use case of mine. In this article, I'll explore what my use case is, what went wrong, and how compilers and the C++ standard can change to make constexpr more useful.</p>
 
 <h1>
 <a id="motivation" class="anchor" href="#motivation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Motivation</h1>
 
-<p>This is the motivation section.</p>
+<p>I'm the maintainer of a small library called <a href="https://github.com/ejmahler/SplineLibrary">SplineLibrary</a>. This library provides open source implementations of popular splines like the catmull-rom spline, cubic b-spline etc, and provides some useful algorithms for getting useful information from them.</p>
+
+<p>One useful piece information one might want from a spline is arc length: Given two points on the spline, how far do you have to travel along to go from one to the other? The arc length formula requires a numeric integral.</p>
+
+<p><a href="https://github.com/ejmahler/SplineLibrary/blob/63dfdd9e8e61032fd8ff8cbd6bab4b3bc9568c8b/spline_library/utils/calculus.h">/spline_library/utils/calculus.h</a> shows an attempt at a fast implementation of <a href="https://en.wikipedia.org/wiki/Gaussian_quadrature">Gauss-Legendre Quadrature</a>, a popular integration algorithm. Here's an implementation:</p>
+
+<pre><code>template&lt;class Function&gt;
+float gaussLegendreQuadrature(Function f, float a, float b)
+{
+    const size_t NUM_POINTS = 5;
+
+    std::array&lt;float , NUM_POINTS&gt; quadraturePoints = {
+         0.0000000000000000,
+         0.5384693101056831,
+        -0.5384693101056831,
+         0.9061798459386640,
+        -0.9061798459386640
+    };
+
+    std::array&lt;float , NUM_POINTS&gt; quadratureWeights = {
+        0.5688888888888889,
+        0.4786286704993665,
+        0.4786286704993665,
+        0.2369268850561891,
+        0.2369268850561891
+    };
+
+    float halfDiff = (b - a) / 2;
+    float halfSum = (a + b) / 2;
+
+    float sum(0);
+    for(size_t i = 0; i &lt; NUM_POINTS; i++)
+    {
+        sum += quadratureWeights[i] * f(halfDiff * quadraturePoints[i] + halfSum);
+    }
+    return halfDiff * sum;
+}
+</code></pre>
+
+<p>It's a very simple algorithm: Copy and paste a bunch of numbers into the points and weights arrays, evaluate the integrand with each of <code>points[i],</code> then multiply the result by the corresponding <code>weight[i]</code>. Return the overall sum. The numbers you copy+paste depend only on the chosen value of <code>NUM_POINTS</code>.</p>
+
+<p>Copy+pasting a bunch of numbers is pretty lame. The precision you get out of the algorithm is determined by the value of <code>NUM_POINTS</code> (IE, increase <code>NUM_POINTS</code> and your integral is more accurate), so if you need more precision, you have to copy+paste an entirely new set of numbers into your code. It's unmaintainable, unweildy, and if you make an error in pasting these numbers, it's hard to spot.</p>
+
+<p>But those numbers don't come from nowhere, they come from a well-known mathematical formula. <strong>What if, instead of pasting the result of the formula into the point and weight arrays, we run the formula at compile time, and store the results for use at run-time?</strong> The run-time code won't know the difference in terms of performance, and once it's set up it'll be much easier for programmers to use and change and debug.</p>
+
+<p>Given that constexpr is all about declaring that a function can be run at compile-time, the way forward seems clear: Write a constexpr function that computes and returns the list of points for a given <code>NUM_POINTS</code>, and a second constexpr function that compute returns the list of weights for a given <code>NUM_POINTS</code>. To make changing <code>NUM_POINTS</code> easier, I'm going to implement them as template functions:</p>
+
+<pre><code>template&lt;size_t N&gt;
+constexpr std::array&lt;float, N&gt; gaussLegendrePoints(void);
+
+template&lt;size_t N&gt;
+constexpr std::array&lt;float, N&gt; gaussLegendrePoints(void);
+</code></pre>
 
 <h1>
 <a id="the-code" class="anchor" href="#the-code" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>The Code</h1>
 
-<p>This is the code section.</p>
+<p>There's a very small snag: The weight formula for Gauss-Legendre Quadrature is really complicated. It requires finding all the roots of a polynomial of degree <code>NUM_POINTS</code>, which would require too much code to be worth implementing for such a small application.</p>
+
+<p>Thankfully, there is a very similar algorithm, called <a href="https://en.wikipedia.org/wiki/Clenshaw%E2%80%93Curtis_quadrature">Clenshaw-Curtis Quadrature</a>, whose point and weight formulas can be expressed in less than 50 LOC. For this section I'm going to focus on how to implement Clenshaw-Curtis Quadrature using constexpr.</p>
+
+<p>The core of the algorithm is almost identical to Gauss-Legendre Quadrature:</p>
+
+<pre><code>template&lt;size_t N, class Function&gt;
+float ejmahler_integration::integrateClenshawCurtis(Function integrand, float a, float b)
+{
+    constexpr std::array&lt;float, N/2+1&gt; quadraturePoints = clenshawCurtisPoints&lt;N&gt;();
+    constexpr std::array&lt;float, N/2+1&gt; quadratureWeights = clenshawCurtisWeights&lt;N&gt;();
+
+    float halfDiff = (b - a) / 2;
+    float halfSum = (a + b) / 2;
+
+    float sum(0);
+    for(size_t i = 0; i &lt; N/2; i++)
+    {
+        sum += quadratureWeights[i] * (integrand(halfSum + halfDiff * quadraturePoints[i]) + integrand(halfSum - halfDiff * quadraturePoints[i]));
+    }
+
+    //the final element in quadraturePoints will always be zero. so if we compute it inside the loop it'll be double-evaluated
+    sum += quadratureWeights[N/2] * integrand(halfSum);
+    return halfDiff * sum;
+}
+</code></pre>
+
+<p>Note the "constexpr" next to the std::array declarations: This will force the compiler to evaluate those functions at compile time. (Of course, this is only legal if <code>clenshawCurtisPoints</code> and <code>clenshawCurtisWeights</code> are defined to be constexpr!)</p>
+
+<p>The point formula is straightforward:</p>
+
+<pre><code>template&lt;size_t N&gt;
+constexpr std::array&lt;float, N/2+1&gt; clenshawCurtisPoints(void)
+{
+    std::array&lt;float, N/2+1&gt; result{};
+
+    for(size_t i = 0; i &lt;= N/2; i++)
+    {
+        result[i] = std::cos(i * float(M_PI) / N);
+    }
+
+    return result;
+}
+</code></pre>
+
+<p>There's more code, but at this point, we're already stuck. Despite being a perfect fit for constexpr, our point function doesn't compile.</p>
+
+<h1>
+<a id="roadblocks" class="anchor" href="#roadblocks" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Roadblocks</h1>
+
+<p>There's more than one problem standing in our way: The first is compiler compatibility issues, the second is holes in the standard regarding constexpr, and the third relates to our use of <code>std::cos</code>.</p>
+
+<h2>
+<a id="compiler-compatibility" class="anchor" href="#compiler-compatibility" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Compiler Compatibility</h2>
+
+<h3>
+<a id="g" class="anchor" href="#g" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>g++</h3>
+
+<p>I first tried this on gcc (version 5.3.1). When you try to compile the above code, you get an error similar to this:</p>
+
+<pre><code>clenshaw_curtis_quadrature.h:48:41: note: ‘constexpr std::array&lt;float, ((N / 2) + 1)&gt; clenshawCurtisPoints() [with long unsigned int N = 8ul]’ is not usable as a constexpr function because:
+                                     ^
+clenshaw_curtis_quadrature.h:48:41: sorry, unimplemented: unexpected AST of kind loop_expr
+</code></pre>
+
+<p>It turns out gcc doesn't support loops inside constexpr functions yet. There is a ticket open for this problem <a href="https://gcc.gnu.org/bugzilla/show_bug.cgi?id=68530">here</a>. It looks like a patch has been written to fix the problem, so hopefully we'll see it in the next release. Until then, we can't use gcc if we want to implement this.</p>
+
+<h3>
+<a id="vc" class="anchor" href="#vc" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>vc++</h3>
+
+<p>Visual Studio 2015 Update 2 stops us even sooner: 'error C3250: 'result': declaration is not allowed in 'constexpr' function body'</p>
+
+<p>A quick check of Microsoft's <a href="https://msdn.microsoft.com/en-us/library/hh567368.aspx#cpp14table">c++14 support page</a> shows that they haven't implemented support for c++14 relaxed constexpr yet. I know Microsoft has been infamously behind on c++11 and c++14 features, so I don't have a lot of hope for this being supported soon.</p>
+
+<h3>
+<a id="clang" class="anchor" href="#clang" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>clang++</h3>
+
+<p>Thankfully, clang 3.8.0 produces no compatibility-related errors.</p>
+
+<p>Instead, when we try to compile our code, we get the following:</p>
+
+<pre><code>./clenshaw_curtis_quadrature.h:54:9: note: non-constexpr function 'operator[]' cannot be used in a constant expression
+    result[i] = std::cos(i * floating_t(M_PI) / N);
+</code></pre>
+
+<p>This is not a compatibility issue -- clang is adhering to the standard. This leads us to...</p>
+
+<h2>
+<a id="c-standard-shortcomings" class="anchor" href="#c-standard-shortcomings" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>C++ Standard Shortcomings</h2>
+
+<p>In c++14, the non-const version of <code>std::array::operator[]</code> is not constexpr. In fact, no member fuctions which modify a std::array are constexpr. According to <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/p0107r0.pdf">this c++17 proposal</a> this was simply an oversight, rather than a conscious decision. Hopefully the proposal will be accepted and c++17 will specify <code>operator[]</code> to be constexpr.</p>
 
 <h1>
 <a id="conclusion" class="anchor" href="#conclusion" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Conclusion</h1>
